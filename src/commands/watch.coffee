@@ -1,4 +1,5 @@
 async = require 'async'
+chokidar = require 'chokidar'
 sysPath = require 'path'
 helpers = require '../helpers'
 logger = require '../logger'
@@ -29,9 +30,10 @@ getPluginIncludes = (plugins) ->
     , []
 
 class BrunchWatcher
-  constructor: (@persistent, @options, @onCompile) ->
+  constructor: (@persistent, @options, @_onCompile) ->
     params = {}
     params.minify = yes if options.minify
+    params.persistent = persistent
     if persistent
       params.server = {}
       params.server.run = yes if options.server
@@ -67,9 +69,10 @@ class BrunchWatcher
     watched = [
       @config.paths.app, @config.paths.vendor,
       @config.paths.config, @config.paths.packageConfig
-    ]
+    ].concat(@config.paths.assets)
+
     async.filter watched, fs_utils.exists, (watchedFiles) =>
-      @watcher = fs_utils.watch(watchedFiles)
+      @watcher = chokidar.watch(watchedFiles, fs_utils.ignored)
         .on 'all', (event, path) =>
           logger.debug "File '#{path}' received event '#{event}'"
         .on('add', @changeFileList)
@@ -83,15 +86,27 @@ class BrunchWatcher
         .on('unlink', @removeFromFileList)
         .on('error', logger.error)
 
+  onCompile: (result) =>
+    @_onCompile result
+    @plugins
+      .filter (plugin) ->
+        typeof plugin.onCompile is 'function'
+      .forEach (plugin) ->
+        plugin.onCompile result
+
   compile: =>
     paths = @config.paths
+    copyAssets = (assetPath, callback) =>
+      fs_utils.copyIfExists assetPath, paths.public, yes, callback
+
     fs_utils.write @fileList, @config, @plugins, (error, result) =>
-      fs_utils.copyIfExists paths.assets, paths.public, yes, (error) =>
-        logger.error "Asset compilation failed: #{error}" if error?
+      return logger.error "Write failed: #{error}" if error?
+      async.forEach paths.assets, copyAssets, (error) =>
+        return logger.error "Asset copying failed: #{error}" if error?
         logger.info "compiled."
         logger.debug "compilation time: #{Date.now() - @start}ms"
         @watcher.close() unless @persistent
-        @onCompile null, result
+        @onCompile result
 
   watch: ->
     @initServer()
