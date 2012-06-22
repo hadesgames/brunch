@@ -1,3 +1,13 @@
+* Added conventions:
+    * All directories that named as `assets` are considered as asset dirs,
+    all files there will be copied to public path directly.
+    * All directories that named as `vendor` are considered as vendor files,
+    all files there won't be wrapped in modules.
+    * Conventions are configurable via `config.conventions[name]`.
+    Convention can be a function.
+* Configurable `paths.vendor` / `paths.assets` is now deprecated because
+of conventions.
+
 # Brunch 1.3.1 (unreleased)
 * Added `--reporter` (`-r`) option to `brunch test` which allows to choose
 Mocha reporter.

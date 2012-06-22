@@ -203,6 +203,10 @@ exports.setConfigDefaults = setConfigDefaults = (config, configPath) ->
   paths.config         = configPath       ? joinRoot 'config'
   paths.packageConfig ?= joinRoot 'package.json'
 
+  conventions          = config.conventions  ?= {}
+  conventions.assets  ?= (path) -> /assets\//.test(path)
+  conventions.vendor  ?= (path) -> /vendor\//.test(path)
+
   config.server       ?= {}
   config.server.base  ?= ''
   config.server.port  ?= 3333
